@@ -8,7 +8,7 @@ const jwt = require('jsonwebtoken');
 
 
 const app = express();
-const port = process.env.PORT || 3000;
+const port = process.env.PORT || 3002;
 
 // Secret key for JWT token signing.
 const JWT_SECRET_KEY = 'your-secret-key';
@@ -38,25 +38,37 @@ db.connect(err => {
 app.post('/register', async (req, res) => {
   const { roleId, email, firstName, lastName, password, countryId } = req.body;
   try {
-    
-    // Hash the password
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    // Insert user data into the database
-    const insertQueryUser = 'INSERT INTO users ( RoleID, CountryID, Email, Password) VALUES ( ?, ?, ?, ?)';
-    //const insertQueryCountry = 'INSERT INTO countries ()'
-    db.query(insertQueryUser, [ roleId, countryId, email, hashedPassword], (err, result) => {
+    // Check if a user with the same email already exists
+    const selectQueryUser = 'SELECT * FROM users WHERE Email = ?';
+    db.query(selectQueryUser, [email], async (err, results) => {
       if (err) {
         console.error('Registration failed: ', err);
-        res.status(500).json({ message: 'Registration failed' });
-      } else {
-        console.log(req.body);
-        res.status(201).json({ message: 'Registration successful' });
+        return res.status(500).json({ message: 'Registration failed' });
       }
+
+      if (results.length > 0) {
+        // User with the same email already exists, return an error response
+        return res.status(400).json({ message: 'User already exists with this email' });
+      }
+
+      // Hash the password
+      const hashedPassword = await bcrypt.hash(password, 10);
+
+      // Insert user data into the database
+      const insertQueryUser = 'INSERT INTO users ( RoleID, CountryID, Email, Password) VALUES ( ?, ?, ?, ?)';
+      db.query(insertQueryUser, [ roleId, countryId, email, hashedPassword], (err, result) => {
+        if (err) {
+          console.error('Registration failed: ', err);
+          return res.status(500).json({ message: 'Registration failed' });
+        } else {
+          console.log(req.body);
+          return res.status(201).json({ message: 'Registration successful' });
+        }
+      });
     });
   } catch (error) {
     console.error('Error during registration: ', error);
-    res.status(500).json({ message: 'Registration failed' });
+    return res.status(500).json({ message: 'Registration failed' });
   }
 });
 
